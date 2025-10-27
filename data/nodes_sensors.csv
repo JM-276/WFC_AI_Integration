@@ -1,0 +1,4 @@
+id,type,reading,unit,timestamp
+S900,vibration,9.2,mm/s,2025-10-27T03:00:00Z
+S901,temperature,62.5,C,2025-10-27T03:05:00Z
+S902,vibration,4.1,mm/s,2025-10-27T03:10:00Z
