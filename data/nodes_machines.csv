@@ -1,0 +1,4 @@
+id,type,status,lastMaintenance,energyUsage
+M100,CNC,Running,2025-10-10T09:00:00Z,12.7
+M200,Press,Idle,2025-09-15T13:30:00Z,8.3
+M300,Lathe,Maintenance,2025-08-20T08:15:00Z,0.0
