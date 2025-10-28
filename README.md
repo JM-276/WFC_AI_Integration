@@ -12,3 +12,5 @@ sensorsByZone(zoneId)
 dueForMaintenance(cutoff)
 
 Each includes: description, input schema, the Cypher to run, output fields, and an example call—so your Secondary Agent can call them deterministically
+
+password=U32P3onr7idgSWbqklVReZQ8BVRH_BWH3_A5Oj83oq0
