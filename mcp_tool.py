@@ -1,6 +1,6 @@
 
 """
-ShopfloorGraphTool — Minimal Python wrapper for executing operations defined in shopfloor_tool_contract.json
+ShopfloorGraphTool — Minimal Python wrapper for executing operations defined in mcp_tool_contract.json
 
 Usage (CLI):
   export NEO4J_URI=neo4j+s://62f9b154.databases.neo4j.io
@@ -21,7 +21,7 @@ try:
 except Exception:
     GraphDatabase = None
 
-CONTRACT_PATH = os.environ.get('SHOPFLOOR_CONTRACT', 'shopfloor_tool_contract.json')
+CONTRACT_PATH = os.environ.get('MCP_CONTRACT', 'mcp_tool_contract.json')
 
 @dataclass
 class ToolOperation:

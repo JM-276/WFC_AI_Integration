@@ -31,6 +31,7 @@ class AgentType(Enum):
     ACP = "acp"
 
 @dataclass
+@dataclass
 class ProcessingRequest:
     """Enhanced request with AI context"""
     query: str
@@ -39,6 +40,8 @@ class ProcessingRequest:
     preferred_response_mode: str = "balanced"
     require_sources: bool = True
     max_execution_time: float = 30.0
+    preferred_agent: Optional[str] = None
+    max_results: int = 10
 
 @dataclass
 class ProcessingResponse:

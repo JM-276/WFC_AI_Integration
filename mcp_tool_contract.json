@@ -1,0 +1,560 @@
+{
+  "toolName": "ShopfloorGraphTool",
+  "version": "0.1.0",
+  "description": "Query factory shopfloor graph for machines, sensors, operators, work orders, and maintenance logs.",
+  "timeouts": {
+    "defaultMs": 15000
+  },
+  "auth": {
+    "type": "none"
+  },
+  "operations": {
+    "highVibrationMachines": {
+      "description": "List machines whose linked sensors exceed a reading threshold.",
+      "inputs": {
+        "threshold": {
+          "type": "number",
+          "required": true
+        },
+        "unit": {
+          "type": "string",
+          "required": true,
+          "example": "mm/s"
+        }
+      },
+      "cypher": "MATCH (m:Machine)-[:MONITORED_BY]->(s:Sensor) WHERE s.reading > $threshold AND s.unit = $unit RETURN m.id AS machineId, s.id AS sensorId, s.reading AS reading, s.timestamp AS at ORDER BY reading DESC",
+      "outputs": [
+        {
+          "name": "machineId",
+          "type": "string"
+        },
+        {
+          "name": "sensorId",
+          "type": "string"
+        },
+        {
+          "name": "reading",
+          "type": "number"
+        },
+        {
+          "name": "at",
+          "type": "string"
+        }
+      ],
+      "examples": [
+        {
+          "inputs": {
+            "threshold": 7.5,
+            "unit": "mm/s"
+          }
+        }
+      ]
+    },
+    "overdueWorkOrders": {
+      "description": "Find machines that have overdue work orders.",
+      "inputs": {},
+      "cypher": "MATCH (m:Machine)-[:HAS_WORK_ORDER]->(w:WorkOrder) WHERE w.status = 'Overdue' RETURN m.id AS machineId, w.id AS workOrderId, w.scheduledTime AS due ORDER BY due ASC",
+      "outputs": [
+        {
+          "name": "machineId",
+          "type": "string"
+        },
+        {
+          "name": "workOrderId",
+          "type": "string"
+        },
+        {
+          "name": "due",
+          "type": "string"
+        }
+      ],
+      "examples": [
+        {
+          "inputs": {}
+        }
+      ]
+    },
+    "currentOperator": {
+      "description": "Get the current operator for a machine.",
+      "inputs": {
+        "machineId": {
+          "type": "string",
+          "required": true
+        }
+      },
+      "cypher": "MATCH (m:Machine {id: $machineId})- [r:OPERATED_BY]->(o:Operator) RETURN m.id AS machineId, o.id AS operatorId, o.name AS operatorName, r.shift AS shift",
+      "outputs": [
+        {
+          "name": "machineId",
+          "type": "string"
+        },
+        {
+          "name": "operatorId",
+          "type": "string"
+        },
+        {
+          "name": "operatorName",
+          "type": "string"
+        },
+        {
+          "name": "shift",
+          "type": "string"
+        }
+      ],
+      "examples": [
+        {
+          "inputs": {
+            "machineId": "M100"
+          }
+        }
+      ]
+    },
+    "sensorsByZone": {
+      "description": "List sensors attached to machines located in a given zone.",
+      "inputs": {
+        "zoneId": {
+          "type": "string",
+          "required": true
+        }
+      },
+      "cypher": "MATCH (z:FacilityZone {id: $zoneId})<-[:LOCATED_IN]-(m:Machine)-[:MONITORED_BY]->(s:Sensor) RETURN z.id AS zoneId, m.id AS machineId, s.id AS sensorId, s.type AS sensorType, s.reading AS reading, s.unit AS unit",
+      "outputs": [
+        {
+          "name": "zoneId",
+          "type": "string"
+        },
+        {
+          "name": "machineId",
+          "type": "string"
+        },
+        {
+          "name": "sensorId",
+          "type": "string"
+        },
+        {
+          "name": "sensorType",
+          "type": "string"
+        },
+        {
+          "name": "reading",
+          "type": "number"
+        },
+        {
+          "name": "unit",
+          "type": "string"
+        }
+      ],
+      "examples": [
+        {
+          "inputs": {
+            "zoneId": "Z1"
+          }
+        }
+      ]
+    },
+    "dueForMaintenance": {
+      "description": "Machines whose last maintenance is older than a cutoff datetime.",
+      "inputs": {
+        "cutoff": {
+          "type": "string",
+          "required": true,
+          "example": "2025-10-01T00:00:00Z"
+        }
+      },
+      "cypher": "MATCH (m:Machine) WHERE m.lastMaintenance < datetime($cutoff) RETURN m.id AS machineId, m.lastMaintenance AS lastMaintenance ORDER BY lastMaintenance ASC",
+      "outputs": [
+        {
+          "name": "machineId",
+          "type": "string"
+        },
+        {
+          "name": "lastMaintenance",
+          "type": "string"
+        }
+      ],
+      "examples": [
+        {
+          "inputs": {
+            "cutoff": "2025-10-01T00:00:00Z"
+          }
+        }
+      ]
+    },
+    "listAllMachines": {
+      "description": "List all available machines in the shopfloor with their basic information.",
+      "inputs": {},
+      "cypher": "MATCH (m:Machine) OPTIONAL MATCH (m)-[:LOCATED_IN]->(z:FacilityZone) OPTIONAL MATCH (m)-[:OPERATED_BY]->(o:Operator) RETURN m.id AS machineId, m.name AS machineName, m.type AS machineType, m.status AS status, z.id AS zoneId, z.name AS zoneName, o.name AS currentOperator ORDER BY m.id",
+      "outputs": [
+        {
+          "name": "machineId",
+          "type": "string"
+        },
+        {
+          "name": "machineName",
+          "type": "string"
+        },
+        {
+          "name": "machineType",
+          "type": "string"
+        },
+        {
+          "name": "status",
+          "type": "string"
+        },
+        {
+          "name": "zoneId",
+          "type": "string"
+        },
+        {
+          "name": "zoneName",
+          "type": "string"
+        },
+        {
+          "name": "currentOperator",
+          "type": "string"
+        }
+      ],
+      "examples": [
+        {
+          "inputs": {}
+        }
+      ]
+    },
+    "findQualifiedOperators": {
+      "description": "Find operators with specific certifications for maintenance or operation tasks.",
+      "inputs": {
+        "certification": {
+          "type": "string",
+          "required": true,
+          "example": "CNC-1"
+        }
+      },
+      "cypher": "MATCH (o:Operator) WHERE ANY(cert IN split(o.certifications, ';') WHERE cert CONTAINS $certification) RETURN o.id AS operatorId, o.name AS operatorName, o.shift AS shift, o.certifications AS certifications ORDER BY o.name",
+      "outputs": [
+        {
+          "name": "operatorId",
+          "type": "string"
+        },
+        {
+          "name": "operatorName",
+          "type": "string"
+        },
+        {
+          "name": "shift",
+          "type": "string"
+        },
+        {
+          "name": "certifications",
+          "type": "string"
+        }
+      ],
+      "examples": [
+        {
+          "inputs": {
+            "certification": "CNC-1"
+          }
+        }
+      ]
+    },
+    "workOrdersByStatus": {
+      "description": "Find work orders by their current status (Overdue, InProgress, Scheduled).",
+      "inputs": {
+        "status": {
+          "type": "string",
+          "required": true,
+          "example": "InProgress"
+        }
+      },
+      "cypher": "MATCH (w:WorkOrder) WHERE w.status = $status OPTIONAL MATCH (m:Machine)-[:HAS_WORK_ORDER]->(w) RETURN w.id AS workOrderId, w.status AS status, w.scheduledTime AS scheduledTime, w.priority AS priority, m.id AS machineId ORDER BY w.priority DESC, w.scheduledTime ASC",
+      "outputs": [
+        {
+          "name": "workOrderId",
+          "type": "string"
+        },
+        {
+          "name": "status",
+          "type": "string"
+        },
+        {
+          "name": "scheduledTime",
+          "type": "string"
+        },
+        {
+          "name": "priority",
+          "type": "string"
+        },
+        {
+          "name": "machineId",
+          "type": "string"
+        }
+      ],
+      "examples": [
+        {
+          "inputs": {
+            "status": "InProgress"
+          }
+        }
+      ]
+    },
+    "maintenanceHistory": {
+      "description": "Get maintenance history and logs for a specific machine.",
+      "inputs": {
+        "machineId": {
+          "type": "string",
+          "required": true,
+          "example": "M100"
+        }
+      },
+      "cypher": "MATCH (m:Machine {id: $machineId})-[:HAS_WORK_ORDER]->(w:WorkOrder)-[:HAS_LOG]->(l:MaintenanceLog) RETURN m.id AS machineId, w.id AS workOrderId, w.scheduledTime AS workOrderDate, l.id AS logId, l.issue AS issue, l.resolution AS resolution, l.duration AS duration ORDER BY w.scheduledTime DESC",
+      "outputs": [
+        {
+          "name": "machineId",
+          "type": "string"
+        },
+        {
+          "name": "workOrderId",
+          "type": "string"
+        },
+        {
+          "name": "workOrderDate",
+          "type": "string"
+        },
+        {
+          "name": "logId",
+          "type": "string"
+        },
+        {
+          "name": "issue",
+          "type": "string"
+        },
+        {
+          "name": "resolution",
+          "type": "string"
+        },
+        {
+          "name": "duration",
+          "type": "number"
+        }
+      ],
+      "examples": [
+        {
+          "inputs": {
+            "machineId": "M100"
+          }
+        }
+      ]
+    },
+    "machineCurrentSensors": {
+      "description": "Get all current sensor readings for a specific machine.",
+      "inputs": {
+        "machineId": {
+          "type": "string",
+          "required": true,
+          "example": "M100"
+        }
+      },
+      "cypher": "MATCH (m:Machine {id: $machineId})-[:MONITORED_BY]->(s:Sensor) RETURN m.id AS machineId, s.id AS sensorId, s.type AS sensorType, s.reading AS reading, s.unit AS unit, s.timestamp AS timestamp ORDER BY s.timestamp DESC",
+      "outputs": [
+        {
+          "name": "machineId",
+          "type": "string"
+        },
+        {
+          "name": "sensorId",
+          "type": "string"
+        },
+        {
+          "name": "sensorType",
+          "type": "string"
+        },
+        {
+          "name": "reading",
+          "type": "number"
+        },
+        {
+          "name": "unit",
+          "type": "string"
+        },
+        {
+          "name": "timestamp",
+          "type": "string"
+        }
+      ],
+      "examples": [
+        {
+          "inputs": {
+            "machineId": "M100"
+          }
+        }
+      ]
+    },
+    "currentProductionBatches": {
+      "description": "Find currently active production batches.",
+      "inputs": {},
+      "cypher": "MATCH (b:ProductionBatch) WHERE b.endTime IS NULL OR b.endTime > datetime() OPTIONAL MATCH (m:Machine)-[:PART_OF_BATCH]->(b) RETURN b.id AS batchId, b.productType AS productType, b.startTime AS startTime, b.endTime AS endTime, collect(m.id) AS assignedMachines ORDER BY b.startTime DESC",
+      "outputs": [
+        {
+          "name": "batchId",
+          "type": "string"
+        },
+        {
+          "name": "productType",
+          "type": "string"
+        },
+        {
+          "name": "startTime",
+          "type": "string"
+        },
+        {
+          "name": "endTime",
+          "type": "string"
+        },
+        {
+          "name": "assignedMachines",
+          "type": "array"
+        }
+      ],
+      "examples": [
+        {
+          "inputs": {}
+        }
+      ]
+    },
+    "machinesInZone": {
+      "description": "List all machines located in a specific zone.",
+      "inputs": {
+        "zoneId": {
+          "type": "string",
+          "required": true,
+          "example": "Z1"
+        }
+      },
+      "cypher": "MATCH (z:FacilityZone {id: $zoneId})<-[:LOCATED_IN]-(m:Machine) OPTIONAL MATCH (m)-[:OPERATED_BY]->(o:Operator) RETURN z.id AS zoneId, z.name AS zoneName, m.id AS machineId, m.type AS machineType, m.status AS status, m.energyUsage AS energyUsage, o.name AS currentOperator ORDER BY m.id",
+      "outputs": [
+        {
+          "name": "zoneId",
+          "type": "string"
+        },
+        {
+          "name": "zoneName",
+          "type": "string"
+        },
+        {
+          "name": "machineId",
+          "type": "string"
+        },
+        {
+          "name": "machineType",
+          "type": "string"
+        },
+        {
+          "name": "status",
+          "type": "string"
+        },
+        {
+          "name": "energyUsage",
+          "type": "number"
+        },
+        {
+          "name": "currentOperator",
+          "type": "string"
+        }
+      ],
+      "examples": [
+        {
+          "inputs": {
+            "zoneId": "Z1"
+          }
+        }
+      ]
+    },
+    "operatorsByShift": {
+      "description": "List all operators working a specific shift.",
+      "inputs": {
+        "shift": {
+          "type": "string",
+          "required": true,
+          "example": "Day"
+        }
+      },
+      "cypher": "MATCH (o:Operator) WHERE o.shift = $shift OPTIONAL MATCH (o)<-[:OPERATED_BY]-(m:Machine) RETURN o.id AS operatorId, o.name AS operatorName, o.shift AS shift, o.certifications AS certifications, collect(m.id) AS assignedMachines ORDER BY o.name",
+      "outputs": [
+        {
+          "name": "operatorId",
+          "type": "string"
+        },
+        {
+          "name": "operatorName",
+          "type": "string"
+        },
+        {
+          "name": "shift",
+          "type": "string"
+        },
+        {
+          "name": "certifications",
+          "type": "string"
+        },
+        {
+          "name": "assignedMachines",
+          "type": "array"
+        }
+      ],
+      "examples": [
+        {
+          "inputs": {
+            "shift": "Day"
+          }
+        }
+      ]
+    },
+    "temperatureAlerts": {
+      "description": "Find machines with high temperature sensor readings above threshold.",
+      "inputs": {
+        "threshold": {
+          "type": "number",
+          "required": true,
+          "example": 60.0
+        }
+      },
+      "cypher": "MATCH (m:Machine)-[:MONITORED_BY]->(s:Sensor) WHERE s.type = 'temperature' AND s.reading > $threshold RETURN m.id AS machineId, m.type AS machineType, m.status AS status, s.id AS sensorId, s.reading AS temperature, s.unit AS unit, s.timestamp AS timestamp ORDER BY s.reading DESC",
+      "outputs": [
+        {
+          "name": "machineId",
+          "type": "string"
+        },
+        {
+          "name": "machineType",
+          "type": "string"
+        },
+        {
+          "name": "status",
+          "type": "string"
+        },
+        {
+          "name": "sensorId",
+          "type": "string"
+        },
+        {
+          "name": "temperature",
+          "type": "number"
+        },
+        {
+          "name": "unit",
+          "type": "string"
+        },
+        {
+          "name": "timestamp",
+          "type": "string"
+        }
+      ],
+      "examples": [
+        {
+          "inputs": {
+            "threshold": 60.0
+          }
+        }
+      ]
+    }
+  }
+}
