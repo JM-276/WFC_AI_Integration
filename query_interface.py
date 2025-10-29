@@ -27,9 +27,7 @@ class InteractiveQueryInterface:
     
     async def initialize(self):
         """Initialize the system"""
-        print("🚀 Initializing WFC AI Integration System...")
-        print("Please wait while we set up all components...")
-        print("-" * 60)
+        # Silent initialization
         
         self.system = WFCIntegrationSystem()
         success = await self.system.initialize()
@@ -42,8 +40,7 @@ class InteractiveQueryInterface:
         api_key = os.getenv('OPENAI_API_KEY', '')
         self.openai_available = api_key and api_key != 'your_openai_api_key_here'
         
-        print("\n✅ System ready!")
-        print(f"🤖 OpenAI: {'Available' if self.openai_available else 'Not configured'}")
+
         return True
     
     async def show_help(self):
@@ -193,76 +190,38 @@ class InteractiveQueryInterface:
             
             # Display results
             success = result.get('success', False)
-            print(f"{'✅' if success else '❌'} Status: {'Success' if success else 'Failed'}")
-            print(f"🤖 Agent: {result.get('agent_used', 'unknown')}")
-            print(f"⏱️ Time: {execution_time:.3f}s")
             
             if success:
-                # Show OpenAI response if available
-                llm_response = result.get('llm_response')
-                if llm_response and llm_response.get('success'):
-                    print(f"\n🤖 AI Response ({result.get('response_mode', 'balanced')} mode):")
-                    print("-" * 50)
-                    print(llm_response['content'])
-                    
-                    if llm_response.get('usage'):
-                        tokens = llm_response['usage'].get('total_tokens', '?')
-                        cost = (llm_response['usage'].get('prompt_tokens', 0) * 0.00003 + 
-                               llm_response['usage'].get('completion_tokens', 0) * 0.00006)
-                        print(f"\n📊 Usage: {tokens} tokens (~${cost:.4f})")
+                # Show main response content first
+                content = result.get('content')
+                if content:
+                    print(content)
                 
-                # Show data summary
-                data = result.get('data', {})
-                if 'retrieved_documents' in data:
-                    docs = data['retrieved_documents']
-                    print(f"\n📄 Retrieved Documents: {len(docs)}")
-                    if docs:
-                        print("Top results:")
-                        for i, doc in enumerate(docs[:3], 1):
-                            content = doc.get('content', '')[:100] + "..." if len(doc.get('content', '')) > 100 else doc.get('content', '')
-                            score = doc.get('score', 0)
-                            print(f"  {i}. [{score:.2f}] {content}")
-                
-                elif 'count' in data:
-                    print(f"\n📊 Database Results: {data['count']} records")
-                    raw_data = data.get('data', [])
-                    if raw_data and isinstance(raw_data, list):
-                        print("Sample data:")
-                        for i, record in enumerate(raw_data[:2], 1):
-                            print(f"  {i}. {record}")
-                
-                elif isinstance(data, list):
-                    print(f"\n📊 Results: {len(data)} items")
-                    for i, item in enumerate(data[:2], 1):
-                        print(f"  {i}. {item}")
+                # Show OpenAI response if available and no content shown yet
+                if not content:
+                    llm_response = result.get('llm_response')
+                    if llm_response and llm_response.get('success'):
+                        print(llm_response['content'])
+
+
             
             else:
-                print(f"\n❌ Error: {result.get('error', 'Unknown error')}")
+                print(f"Error: {result.get('error', 'Unknown error')}")
         
         except Exception as e:
-            print(f"\n❌ Processing Error: {e}")
+            print(f"Error: {e}")
     
     async def run(self):
         """Run the interactive interface"""
-        print("🏭 WFC AI Integration - Interactive Query Interface")
-        print("   Ask any questions about your shopfloor data!")
-        print("="*60)
-        
-        # Initialize system
+        # Initialize system silently
         success = await self.initialize()
         if not success:
             return
         
-        # Show initial help
-        await self.show_help()
-        
-        print(f"\n🎯 Ready for your queries! Type 'help' for assistance.")
-        print("💡 Try: 'What machines have high vibration?' or 'examples' for more ideas")
-        
         try:
             while True:
                 try:
-                    query = input("\n🤔 Your query: ").strip()
+                    query = input("Your query: ").strip()
                     
                     if not query:
                         continue

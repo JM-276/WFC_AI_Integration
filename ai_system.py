@@ -20,11 +20,11 @@ from pathlib import Path
 
 # Import enhanced components
 try:
-    from ai_main_agent import EnhancedMainAgent, ProcessingRequest, ProcessingResponse
+    from ai_agent import EnhancedMainAgent, ProcessingRequest, ProcessingResponse
     ENHANCED_MAIN_AVAILABLE = True
 except ImportError:
     ENHANCED_MAIN_AVAILABLE = False
-    from ai_main_agent import EnhancedMainAgent
+    from ai_agent import EnhancedMainAgent
 
 try:
     from ai_coordinator import ACPCoordinator, ACPRequest
@@ -34,12 +34,12 @@ except ImportError:
 
 # Import existing components with fallbacks
 try:
-    from document_processor import DocumentProcessor
+    from rag_processor import DocumentProcessor
 except ImportError:
-    from document_search import SimpleRAGAgent as RAGAgent
+    from rag_processor import SimpleRAGAgent as RAGAgent
 
-from database_agent import GraphAgent
-from document_processor import RAGSystem
+from graph_db import GraphAgent
+from rag_processor import RAGSystem
 from ai_brain import OpenAIIntegration, EnhancedRAGAgent
 
 # Import standard main agent components
@@ -110,21 +110,25 @@ class WFCIntegrationSystem:
             
             # Initialize RAG agent (use simple version for reliability)
             logger.info("🔍 Initializing RAG agent...")
+            rag_success = False
             try:
-                from document_search import SimpleRAGAgent
+                from rag_processor import SimpleRAGAgent
                 self.rag_agent = SimpleRAGAgent()
                 rag_success = await self.rag_agent.initialize()
-                logger.info("✅ Using SimpleRAGAgent for better reliability")
+                logger.info(f"✅ Using SimpleRAGAgent for better reliability - Success: {rag_success}")
             except ImportError:
                 self.rag_agent = RAGAgent()
                 rag_success = await self.rag_agent.initialize()
-                logger.info("✅ Using standard RAGAgent")
+                logger.info(f"✅ Using standard RAGAgent - Success: {rag_success}")
+            except Exception as e:
+                logger.error(f"RAG agent initialization error: {e}")
+                rag_success = False
             
-            if rag_success:
+            if rag_success and self.main_agent:
                 self.main_agent.register_agent('rag', self.rag_agent)
                 logger.info("✅ RAG agent initialized and registered")
             else:
-                logger.warning("⚠️ RAG agent initialization failed")
+                logger.warning(f"⚠️ RAG agent initialization failed - Success: {rag_success}, Main agent available: {self.main_agent is not None}")
             
             # Initialize Graph agent
             logger.info("📊 Initializing Graph agent...")
@@ -186,7 +190,7 @@ class WFCIntegrationSystem:
         
         try:
             # Process through enhanced AI-driven main agent
-            from ai_main_agent import ProcessingRequest
+            from ai_agent import ProcessingRequest
             request = ProcessingRequest(
                 query=query,
                 preferred_agent=preferred_agent,
@@ -194,20 +198,34 @@ class WFCIntegrationSystem:
             )
             response = await self.main_agent.process_request(request)
             
+            # Convert ProcessingResponse to dictionary format
+            response_dict = {
+                'success': response.success,
+                'content': response.content,
+                'agent_used': response.agent_used,
+                'execution_time': response.execution_time,
+                'confidence_score': response.confidence_score,
+                'decision_reasoning': response.decision_reasoning,
+                'sources_used': response.sources_used,
+                'function_calls_made': response.function_calls_made,
+                'error': response.error,
+                'suggestions': response.suggestions
+            }
+            
             # Update statistics
-            if response.get('success', False):
+            if response_dict.get('success', False):
                 self.stats['successful_requests'] += 1
-                agent_used = response.get('agent_used', 'unknown')
+                agent_used = response_dict.get('agent_used', 'unknown')
                 if agent_used in self.stats['agent_usage']:
                     self.stats['agent_usage'][agent_used] += 1
             else:
                 self.stats['failed_requests'] += 1
             
             # Add system metadata
-            response['system_execution_time'] = time.time() - start_time
-            response['system_stats'] = self.get_quick_stats()
+            response_dict['system_execution_time'] = time.time() - start_time
+            response_dict['system_stats'] = self.get_quick_stats()
             
-            return response
+            return response_dict
             
         except Exception as e:
             self.stats['failed_requests'] += 1
@@ -407,7 +425,10 @@ class WFCIntegrationSystem:
             agent_status = self.enhanced_main_agent.get_agent_status()
             for name, status in agent_status.items():
                 if name != 'main_agent':
-                    active_status = "✅ Active" if status.get('status') == 'active' else "❌ Inactive"
+                    # Check both 'status' and 'active' fields for compatibility
+                    is_active = (status.get('status') == 'active' or 
+                                status.get('active', False) == True)
+                    active_status = "✅ Active" if is_active else "❌ Inactive"
                     print(f"🤖 {name.upper()} Agent: {active_status}")
         
         elif self.main_agent:

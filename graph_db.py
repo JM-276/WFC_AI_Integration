@@ -19,7 +19,7 @@ import re
 import os
 
 # Import the existing graph tool
-from shopfloor_tool import ShopfloorGraphTool
+from mcp_tool import ShopfloorGraphTool
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -100,6 +100,108 @@ class GraphAgent:
                 ],
                 'description': 'Find machines due for maintenance',
                 'required_params': ['cutoff']
+            },
+            'listAllMachines': {
+                'patterns': [
+                    r'list.*machine',
+                    r'all.*machine',
+                    r'available.*machine',
+                    r'machine.*available',
+                    r'show.*machine',
+                    r'what.*machine',
+                    r'which.*machine'
+                ],
+                'description': 'List all available machines in the shopfloor',
+                'required_params': []
+            },
+            'findQualifiedOperators': {
+                'patterns': [
+                    r'qualified.*operator',
+                    r'operator.*certification',
+                    r'certified.*operator',
+                    r'find.*operator.*skill',
+                    r'operator.*qualified',
+                    r'maintenance.*operator'
+                ],
+                'description': 'Find operators with specific certifications',
+                'required_params': ['certification']
+            },
+            'workOrdersByStatus': {
+                'patterns': [
+                    r'work.*order.*status',
+                    r'status.*work.*order',
+                    r'in.*progress.*work',
+                    r'scheduled.*work',
+                    r'work.*order.*overdue'
+                ],
+                'description': 'Find work orders by status',
+                'required_params': ['status']
+            },
+            'maintenanceHistory': {
+                'patterns': [
+                    r'maintenance.*history',
+                    r'history.*maintenance',
+                    r'past.*maintenance',
+                    r'maintenance.*log',
+                    r'repair.*history'
+                ],
+                'description': 'Get maintenance history for a machine',
+                'required_params': ['machineId']
+            },
+            'machineCurrentSensors': {
+                'patterns': [
+                    r'sensor.*reading',
+                    r'current.*sensor',
+                    r'machine.*sensor',
+                    r'sensor.*data',
+                    r'monitoring.*data'
+                ],
+                'description': 'Get current sensor readings for a machine',
+                'required_params': ['machineId']
+            },
+            'currentProductionBatches': {
+                'patterns': [
+                    r'production.*batch',
+                    r'current.*batch',
+                    r'active.*batch',
+                    r'running.*batch',
+                    r'batch.*production'
+                ],
+                'description': 'Find currently active production batches',
+                'required_params': []
+            },
+            'machinesInZone': {
+                'patterns': [
+                    r'machine.*zone',
+                    r'zone.*machine',
+                    r'machine.*area',
+                    r'area.*machine',
+                    r'location.*machine'
+                ],
+                'description': 'List machines in a specific zone',
+                'required_params': ['zoneId']
+            },
+            'operatorsByShift': {
+                'patterns': [
+                    r'operator.*shift',
+                    r'shift.*operator',
+                    r'day.*operator',
+                    r'night.*operator',
+                    r'shift.*schedule'
+                ],
+                'description': 'List operators by shift',
+                'required_params': ['shift']
+            },
+            'temperatureAlerts': {
+                'patterns': [
+                    r'temperature.*alert',
+                    r'high.*temperature',
+                    r'temperature.*warning',
+                    r'overheating',
+                    r'hot.*machine'
+                ],
+                'description': 'Find machines with high temperature',
+                'required_params': ['threshold']
             }
         }
     
@@ -357,6 +459,230 @@ class GraphAgent:
             'stats': self.stats,
             'available_operations': list(self.operation_mappings.keys())
         }
+    
+    async def find_high_vibration_machines(self, threshold: float = 7.5, unit: str = "mm/s") -> Dict[str, Any]:
+        """Find machines with high vibration readings"""
+        try:
+            result = await self.execute_operation(
+                operation='highVibrationMachines',
+                query=f'Find machines with high vibration above {threshold} {unit}',
+                params={'threshold': threshold, 'unit': unit}
+            )
+            return result
+        except Exception as e:
+            return {
+                'success': False,
+                'error': f'Failed to find high vibration machines: {str(e)}',
+                'data': []
+            }
+    
+    async def get_overdue_work_orders(self) -> Dict[str, Any]:
+        """Get overdue work orders"""
+        try:
+            result = await self.execute_operation(
+                operation='overdueWorkOrders',
+                query='Find overdue work orders',
+                params={}
+            )
+            return result
+        except Exception as e:
+            return {
+                'success': False,
+                'error': f'Failed to get overdue work orders: {str(e)}',
+                'data': []
+            }
+    
+    async def get_current_operator(self, machine_id: str) -> Dict[str, Any]:
+        """Get current operator for a machine"""
+        try:
+            result = await self.execute_operation(
+                operation='currentOperator',
+                query=f'Who is the current operator for machine {machine_id}',
+                params={'machine_id': machine_id}
+            )
+            return result
+        except Exception as e:
+            return {
+                'success': False,
+                'error': f'Failed to get current operator: {str(e)}',
+                'data': []
+            }
+    
+    async def get_sensors_by_zone(self, zone_id: str) -> Dict[str, Any]:
+        """Get sensors in a specific zone"""
+        try:
+            result = await self.execute_operation(
+                operation='sensorsByZone',
+                query=f'List sensors in zone {zone_id}',
+                params={'zone_id': zone_id}
+            )
+            return result
+        except Exception as e:
+            return {
+                'success': False,
+                'error': f'Failed to get sensors by zone: {str(e)}',
+                'data': []
+            }
+    
+    async def get_machines_due_maintenance(self, days_ahead: int = 7) -> Dict[str, Any]:
+        """Get machines due for maintenance"""
+        try:
+            result = await self.execute_operation(
+                operation='dueForMaintenance',
+                query=f'Find machines due for maintenance in the next {days_ahead} days',
+                params={'days_ahead': days_ahead}
+            )
+            return result
+        except Exception as e:
+            return {
+                'success': False,
+                'error': f'Failed to get machines due maintenance: {str(e)}',
+                'data': []
+            }
+    
+    async def list_all_machines(self) -> Dict[str, Any]:
+        """List all available machines in the shopfloor"""
+        try:
+            result = await self.execute_operation(
+                operation='listAllMachines',
+                query='List all available machines',
+                params={}
+            )
+            return result
+        except Exception as e:
+            return {
+                'success': False,
+                'error': f'Failed to list all machines: {str(e)}',
+                'data': []
+            }
+    
+    async def find_qualified_operators(self, certification: str) -> Dict[str, Any]:
+        """Find operators with specific certifications"""
+        try:
+            result = await self.execute_operation(
+                operation='findQualifiedOperators',
+                query=f'Find operators qualified in {certification}',
+                params={'certification': certification}
+            )
+            return result
+        except Exception as e:
+            return {
+                'success': False,
+                'error': f'Failed to find qualified operators: {str(e)}',
+                'data': []
+            }
+    
+    async def get_work_orders_by_status(self, status: str) -> Dict[str, Any]:
+        """Get work orders by status"""
+        try:
+            result = await self.execute_operation(
+                operation='workOrdersByStatus',
+                query=f'Find work orders with status {status}',
+                params={'status': status}
+            )
+            return result
+        except Exception as e:
+            return {
+                'success': False,
+                'error': f'Failed to get work orders by status: {str(e)}',
+                'data': []
+            }
+    
+    async def get_maintenance_history(self, machine_id: str) -> Dict[str, Any]:
+        """Get maintenance history for a machine"""
+        try:
+            result = await self.execute_operation(
+                operation='maintenanceHistory',
+                query=f'Get maintenance history for machine {machine_id}',
+                params={'machineId': machine_id}
+            )
+            return result
+        except Exception as e:
+            return {
+                'success': False,
+                'error': f'Failed to get maintenance history: {str(e)}',
+                'data': []
+            }
+    
+    async def get_machine_current_sensors(self, machine_id: str) -> Dict[str, Any]:
+        """Get current sensor readings for a machine"""
+        try:
+            result = await self.execute_operation(
+                operation='machineCurrentSensors',
+                query=f'Get current sensors for machine {machine_id}',
+                params={'machineId': machine_id}
+            )
+            return result
+        except Exception as e:
+            return {
+                'success': False,
+                'error': f'Failed to get machine sensors: {str(e)}',
+                'data': []
+            }
+    
+    async def get_current_production_batches(self) -> Dict[str, Any]:
+        """Get currently active production batches"""
+        try:
+            result = await self.execute_operation(
+                operation='currentProductionBatches',
+                query='Find current production batches',
+                params={}
+            )
+            return result
+        except Exception as e:
+            return {
+                'success': False,
+                'error': f'Failed to get production batches: {str(e)}',
+                'data': []
+            }
+    
+    async def get_machines_in_zone(self, zone_id: str) -> Dict[str, Any]:
+        """Get machines in a specific zone"""
+        try:
+            result = await self.execute_operation(
+                operation='machinesInZone',
+                query=f'Get machines in zone {zone_id}',
+                params={'zoneId': zone_id}
+            )
+            return result
+        except Exception as e:
+            return {
+                'success': False,
+                'error': f'Failed to get machines in zone: {str(e)}',
+                'data': []
+            }
+    
+    async def get_operators_by_shift(self, shift: str) -> Dict[str, Any]:
+        """Get operators by shift"""
+        try:
+            result = await self.execute_operation(
+                operation='operatorsByShift',
+                query=f'Get operators working {shift} shift',
+                params={'shift': shift}
+            )
+            return result
+        except Exception as e:
+            return {
+                'success': False,
+                'error': f'Failed to get operators by shift: {str(e)}',
+                'data': []
+            }
+    
+    async def get_temperature_alerts(self, threshold: float = 60.0) -> Dict[str, Any]:
+        """Get machines with high temperature readings"""
+        try:
+            result = await self.execute_operation(
+                operation='temperatureAlerts',
+                query=f'Find machines with temperature above {threshold}',
+                params={'threshold': threshold}
+            )
+            return result
+        except Exception as e:
+            return {
+                'success': False,
+                'error': f'Failed to get temperature alerts: {str(e)}',
+                'data': []
+            }
     
     async def get_available_operations(self) -> Dict[str, Any]:
         """Get list of available graph operations"""

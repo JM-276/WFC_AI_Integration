@@ -18,6 +18,8 @@ import json
 from typing import Dict, Any, List, Optional, Union, Callable
 from dataclasses import dataclass
 import time
+from datetime import datetime, date
+import decimal
 
 # Load environment variables
 try:
@@ -25,6 +27,17 @@ try:
     load_dotenv()
 except ImportError:
     print("python-dotenv not installed, using system environment variables")
+
+def safe_json_serialize(obj):
+    """Safely serialize objects to JSON, handling datetime and other non-serializable types"""
+    if isinstance(obj, (datetime, date)):
+        return obj.isoformat()
+    elif isinstance(obj, decimal.Decimal):
+        return float(obj)
+    elif hasattr(obj, '__dict__'):
+        return str(obj)
+    else:
+        return str(obj)
 
 # OpenAI import with error handling
 try:
@@ -90,13 +103,16 @@ class OpenAIIntegration:
     def _load_config(self) -> OpenAIConfig:
         """Load configuration from environment variables"""
         api_key = os.getenv('OPENAI_API_KEY', '')
+        model = os.getenv('OPENAI_MODEL', 'gpt-4')
         
         if not api_key:
             logger.warning("OPENAI_API_KEY not found in environment variables")
         
+        logger.info(f"Loading OpenAI model: {model}")
+        
         return OpenAIConfig(
             api_key=api_key,
-            model=os.getenv('OPENAI_MODEL', 'gpt-4'),
+            model=model,
             max_tokens=int(os.getenv('OPENAI_MAX_TOKENS', '1500')),
             temperature=float(os.getenv('OPENAI_TEMPERATURE', '0.7')),
             timeout=int(os.getenv('OPENAI_TIMEOUT', '30'))
@@ -109,7 +125,32 @@ class OpenAIIntegration:
                 logger.error("OpenAI API key not provided")
                 return False
             
-            self.client = OpenAI(api_key=self.config.api_key)
+            # Configure client with SSL verification options
+            import ssl
+            import httpx
+            
+            # Create custom HTTP client with SSL context
+            ssl_context = ssl.create_default_context()
+            
+            # For corporate networks, you might need to disable SSL verification
+            # ONLY USE THIS IN CORPORATE ENVIRONMENTS
+            verify_ssl = os.getenv('OPENAI_VERIFY_SSL', 'true').lower() != 'false'
+            
+            if not verify_ssl:
+                logger.warning("SSL verification disabled - only use in corporate environments")
+                ssl_context.check_hostname = False
+                ssl_context.verify_mode = ssl.CERT_NONE
+            
+            # Create HTTP client
+            http_client = httpx.Client(
+                verify=verify_ssl,
+                timeout=self.config.timeout
+            )
+            
+            self.client = OpenAI(
+                api_key=self.config.api_key,
+                http_client=http_client
+            )
             self.initialized = True
             logger.info("OpenAI client initialized successfully")
             return True
@@ -298,7 +339,7 @@ class OpenAIIntegration:
                     messages.append({
                         "role": "tool",
                         "tool_call_id": tool_call.id,
-                        "content": json.dumps(func_call.get("result", func_call.get("error")))
+                        "content": json.dumps(func_call.get("result", func_call.get("error")), default=safe_json_serialize)
                     })
                 
                 # Get final synthesis response

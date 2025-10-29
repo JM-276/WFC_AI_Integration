@@ -17,11 +17,24 @@ from typing import Dict, Any, List, Optional, Union, Callable
 from dataclasses import dataclass
 from enum import Enum
 import time
+from datetime import datetime, date
+import decimal
 
 from ai_brain import OpenAIIntegration, EnhancedRAGAgent
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+def safe_json_serialize(obj):
+    """Safely serialize objects to JSON, handling datetime and other non-serializable types"""
+    if isinstance(obj, (datetime, date)):
+        return obj.isoformat()
+    elif isinstance(obj, decimal.Decimal):
+        return float(obj)
+    elif hasattr(obj, '__dict__'):
+        return str(obj)
+    else:
+        return str(obj)
 
 class AgentCapability(Enum):
     """Available agent capabilities"""
@@ -244,6 +257,147 @@ class ACPCoordinator:
             },
             agent_type="graph",
             mcp_tool="dueForMaintenance"
+        ))
+        
+        self.register_tool(ToolDescriptor(
+            name="list_all_machines",
+            description="List all available machines in the shopfloor with their basic information. Use when users ask about what machines are available, all machines, or machine inventory.",
+            parameters={
+                "type": "object",
+                "properties": {}
+            },
+            agent_type="graph",
+            mcp_tool="listAllMachines"
+        ))
+        
+        self.register_tool(ToolDescriptor(
+            name="find_qualified_operators",
+            description="Find operators with specific certifications for maintenance or operation tasks. Use when assigning work to qualified personnel.",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "certification": {
+                        "type": "string",
+                        "description": "The certification or skill required (e.g., 'CNC-1', 'Safety-A')"
+                    }
+                },
+                "required": ["certification"]
+            },
+            agent_type="graph",
+            mcp_tool="findQualifiedOperators"
+        ))
+        
+        self.register_tool(ToolDescriptor(
+            name="get_work_orders_by_status",
+            description="Find work orders by their current status (Overdue, InProgress, Scheduled). Use for workflow management and tracking.",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "status": {
+                        "type": "string", 
+                        "description": "Work order status: 'Overdue', 'InProgress', or 'Scheduled'"
+                    }
+                },
+                "required": ["status"]
+            },
+            agent_type="graph",
+            mcp_tool="workOrdersByStatus"
+        ))
+        
+        self.register_tool(ToolDescriptor(
+            name="get_maintenance_history",
+            description="Get detailed maintenance history and logs for a specific machine. Use for understanding past issues and repair patterns.",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "machine_id": {
+                        "type": "string",
+                        "description": "The machine ID to get history for"
+                    }
+                },
+                "required": ["machine_id"]
+            },
+            agent_type="graph",
+            mcp_tool="maintenanceHistory"
+        ))
+        
+        self.register_tool(ToolDescriptor(
+            name="get_machine_current_sensors",
+            description="Get all current sensor readings for a specific machine. Use for real-time monitoring and diagnostics.",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "machine_id": {
+                        "type": "string",
+                        "description": "The machine ID to get sensor data for"
+                    }
+                },
+                "required": ["machine_id"]
+            },
+            agent_type="graph",
+            mcp_tool="machineCurrentSensors"
+        ))
+        
+        self.register_tool(ToolDescriptor(
+            name="get_current_production_batches",
+            description="Find currently active production batches. Use for production tracking and scheduling.",
+            parameters={
+                "type": "object",
+                "properties": {}
+            },
+            agent_type="graph",
+            mcp_tool="currentProductionBatches"
+        ))
+        
+        self.register_tool(ToolDescriptor(
+            name="get_machines_in_zone",
+            description="List all machines located in a specific zone. Use for zone-based operations and management.",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "zone_id": {
+                        "type": "string",
+                        "description": "The zone ID to search in"
+                    }
+                },
+                "required": ["zone_id"]
+            },
+            agent_type="graph",
+            mcp_tool="machinesInZone"
+        ))
+        
+        self.register_tool(ToolDescriptor(
+            name="get_operators_by_shift",
+            description="List all operators working a specific shift. Use for shift planning and operator assignment.",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "shift": {
+                        "type": "string",
+                        "description": "The shift name: 'Day' or 'Night'"
+                    }
+                },
+                "required": ["shift"]
+            },
+            agent_type="graph",
+            mcp_tool="operatorsByShift"
+        ))
+        
+        self.register_tool(ToolDescriptor(
+            name="get_temperature_alerts",
+            description="Find machines with high temperature sensor readings above threshold. Use for equipment monitoring and preventing overheating.",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "threshold": {
+                        "type": "number",
+                        "description": "Temperature threshold in Celsius (default: 60.0)"
+                    }
+                },
+                "required": ["threshold"]
+            },
+            agent_type="graph",
+            mcp_tool="temperatureAlerts"
         ))
         
         # System Tools
@@ -565,6 +719,38 @@ Be strategic - you can use multiple tools and combine their results.
                     return await agent.get_machines_due_maintenance(
                         arguments.get("cutoff_date", "")
                     )
+                elif tool.mcp_tool == "listAllMachines":
+                    return await agent.list_all_machines()
+                elif tool.mcp_tool == "findQualifiedOperators":
+                    return await agent.find_qualified_operators(
+                        arguments.get("certification", "")
+                    )
+                elif tool.mcp_tool == "workOrdersByStatus":
+                    return await agent.get_work_orders_by_status(
+                        arguments.get("status", "")
+                    )
+                elif tool.mcp_tool == "maintenanceHistory":
+                    return await agent.get_maintenance_history(
+                        arguments.get("machine_id", "")
+                    )
+                elif tool.mcp_tool == "machineCurrentSensors":
+                    return await agent.get_machine_current_sensors(
+                        arguments.get("machine_id", "")
+                    )
+                elif tool.mcp_tool == "currentProductionBatches":
+                    return await agent.get_current_production_batches()
+                elif tool.mcp_tool == "machinesInZone":
+                    return await agent.get_machines_in_zone(
+                        arguments.get("zone_id", "")
+                    )
+                elif tool.mcp_tool == "operatorsByShift":
+                    return await agent.get_operators_by_shift(
+                        arguments.get("shift", "")
+                    )
+                elif tool.mcp_tool == "temperatureAlerts":
+                    return await agent.get_temperature_alerts(
+                        arguments.get("threshold", 60.0)
+                    )
             
             return {"success": False, "error": f"Agent {agent_type} not available or tool not implemented"}
             
@@ -649,7 +835,7 @@ Format your response in a natural, conversational way.
         for tool_name, result in tool_results.items():
             if result.get('success'):
                 data = result.get('data', result)
-                formatted_results.append(f"{tool_name}: {json.dumps(data, default=str)}")
+                formatted_results.append(f"{tool_name}: {json.dumps(data, default=safe_json_serialize)}")
             else:
                 formatted_results.append(f"{tool_name}: Error - {result.get('error', 'Unknown error')}")
         
