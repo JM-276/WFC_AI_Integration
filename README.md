@@ -112,6 +112,56 @@ python ai_system.py
 - All agents are async and can be registered with the main agent
 - OpenAI integration is optional but recommended for enhanced responses
 
+## Deployment
+
+### Docker Container
+
+Build and run the application as a container:
+
+```bash
+# Build the image
+docker build -t wfc-ai-integration .
+
+# Run with docker-compose
+docker-compose up -d
+
+# Or run standalone
+docker run -d \
+  -p 8000:8000 \
+  -e NEO4J_URI=bolt://your-neo4j:7687 \
+  -e NEO4J_USER=neo4j \
+  -e NEO4J_PASSWORD=your-password \
+  wfc-ai-integration
+```
+
+### Industrial Edge Deployment
+
+Deploy as a Workflow Canvas node:
+
+1. **Build & Publish**: GitHub Actions automatically builds and pushes to Docker Hub
+2. **Import to IEM**: Pull image from `docker.io/lalukeland/wfc-ai-integration`
+3. **Deploy to Edge**: Install on your Industrial Edge device
+4. **Use in Canvas**: Drag-and-drop AI node in Workflow Canvas
+
+📖 **Complete Guide**: See `industrial-edge/DEPLOYMENT_GUIDE.md` for detailed step-by-step instructions.
+
+### API Endpoints
+
+Once deployed, access these endpoints:
+
+- `GET /`: Health check and API info
+- `POST /query`: Process queries through multi-agent system
+- `POST /enhanced-query`: AI-enhanced query processing
+- `GET /status`: System status
+- `GET /stats`: System statistics
+
+Example API call:
+```bash
+curl -X POST http://localhost:8000/query \
+  -H "Content-Type: application/json" \
+  -d '{"query": "What machines need maintenance?", "max_results": 5}'
+```
+
 ## License
 MIT License - see LICENSE file for details
 

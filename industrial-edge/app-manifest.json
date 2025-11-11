@@ -1,0 +1,99 @@
+{
+  "name": "WFC AI Integration",
+  "version": "1.0.0",
+  "description": "AI-powered shopfloor data analysis with RAG and graph database capabilities",
+  "publisher": "Your Organization",
+  "category": "Analytics",
+  "icon": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+  "type": "app",
+  "runtime": "docker-compose",
+  "image": {
+    "repository": "docker.io/lalukeland/wfc-ai-integration",
+    "tag": "latest"
+  },
+  "ports": [
+    {
+      "name": "API",
+      "protocol": "http",
+      "port": 8000,
+      "description": "FastAPI REST API endpoint"
+    }
+  ],
+  "environment": [
+    {
+      "name": "NEO4J_URI",
+      "description": "Neo4j database connection URI",
+      "type": "string",
+      "required": true,
+      "default": "bolt://neo4j:7687"
+    },
+    {
+      "name": "NEO4J_USER",
+      "description": "Neo4j username",
+      "type": "string",
+      "required": true,
+      "default": "neo4j"
+    },
+    {
+      "name": "NEO4J_PASSWORD",
+      "description": "Neo4j password",
+      "type": "password",
+      "required": true
+    },
+    {
+      "name": "OPENAI_API_KEY",
+      "description": "OpenAI API key for enhanced mode (optional)",
+      "type": "password",
+      "required": false
+    },
+    {
+      "name": "OPENAI_MODEL",
+      "description": "OpenAI model to use",
+      "type": "string",
+      "required": false,
+      "default": "gpt-4"
+    },
+    {
+      "name": "USE_ENHANCED_MODE",
+      "description": "Enable OpenAI-powered enhanced responses",
+      "type": "boolean",
+      "required": false,
+      "default": "true"
+    },
+    {
+      "name": "LOG_LEVEL",
+      "description": "Application log level",
+      "type": "string",
+      "required": false,
+      "default": "INFO"
+    }
+  ],
+  "volumes": [
+    {
+      "name": "wfc-cache",
+      "path": "/app/cache",
+      "description": "Cache storage for RAG embeddings and models"
+    },
+    {
+      "name": "wfc-data",
+      "path": "/app/data",
+      "description": "Application data storage"
+    }
+  ],
+  "resources": {
+    "memory": {
+      "min": "1Gi",
+      "max": "2Gi"
+    },
+    "cpu": {
+      "min": "0.5",
+      "max": "2"
+    }
+  },
+  "healthcheck": {
+    "endpoint": "/",
+    "interval": 30,
+    "timeout": 10,
+    "retries": 3
+  }
+}
