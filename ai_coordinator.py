@@ -244,16 +244,16 @@ class ACPCoordinator:
         
         self.register_tool(ToolDescriptor(
             name="find_machines_due_maintenance",
-            description="Find machines due for maintenance by a certain date. Use for preventive maintenance planning.",
+            description="Find machines due for maintenance. Shows machines whose last maintenance was before a cutoff date. If no cutoff date is provided, defaults to 30 days ago to find machines that haven't been maintained recently.",
             parameters={
                 "type": "object",
                 "properties": {
                     "cutoff_date": {
                         "type": "string",
-                        "description": "Cutoff date in ISO format (YYYY-MM-DD)"
+                        "description": "Cutoff date in ISO format (YYYY-MM-DD). Optional - defaults to 30 days ago if not provided."
                     }
                 },
-                "required": ["cutoff_date"]
+                "required": []
             },
             agent_type="graph",
             mcp_tool="dueForMaintenance"
@@ -580,7 +580,7 @@ Be strategic - you can use multiple tools and combine their results.
                 response_mode=request.response_format,
                 available_functions=functions,
                 function_executor=self._execute_single_tool,
-                system_prompt="You are an intelligent shopfloor data analysis assistant. Use the available tools to provide comprehensive answers to user questions. You can call multiple tools if needed to gather complete information."
+                system_prompt="You are an intelligent shopfloor data analysis assistant. Use the available tools to provide comprehensive answers to user questions. IMPORTANT: Only call functions when you have ALL required parameters available. Do not call functions that require specific IDs (like machineId, zoneId) unless the user explicitly provides them in their query. If a function requires parameters you don't have, skip it and use only the functions you can call with available information."
             )
             
             if response.success:
@@ -708,17 +708,25 @@ Be strategic - you can use multiple tools and combine their results.
                 elif tool.mcp_tool == "overdueWorkOrders":
                     return await agent.get_overdue_work_orders()
                 elif tool.mcp_tool == "currentOperator":
-                    return await agent.get_current_operator(
-                        arguments.get("machine_id", "")
-                    )
+                    machine_id = arguments.get("machine_id") or arguments.get("machineId", "")
+                    if not machine_id:
+                        return {
+                            "success": False,
+                            "error": "currentOperator requires machineId parameter",
+                            "data": []
+                        }
+                    return await agent.get_current_operator(machine_id)
                 elif tool.mcp_tool == "sensorsByZone":
                     return await agent.get_sensors_by_zone(
                         arguments.get("zone_id", "")
                     )
                 elif tool.mcp_tool == "dueForMaintenance":
-                    return await agent.get_machines_due_maintenance(
-                        arguments.get("cutoff_date", "")
-                    )
+                    from datetime import datetime, timedelta
+                    # Default to 30 days ago if no cutoff provided
+                    cutoff_date = arguments.get("cutoff_date")
+                    if not cutoff_date:
+                        cutoff_date = (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d')
+                    return await agent.get_machines_due_maintenance(cutoff_date)
                 elif tool.mcp_tool == "listAllMachines":
                     return await agent.list_all_machines()
                 elif tool.mcp_tool == "findQualifiedOperators":

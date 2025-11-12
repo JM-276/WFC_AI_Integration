@@ -1,10 +1,15 @@
 from fastapi import FastAPI, Request, HTTPException
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import HTMLResponse
+from fastapi.middleware.cors import CORSMiddleware
 from typing import Any, Dict, Optional
 from pydantic import BaseModel
 import logging
+from pathlib import Path
 
 # Import your workflow system
 from ai_system import WFCIntegrationSystem
+from workflow_canvas_integration import setup_workflow_canvas_routes
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -16,6 +21,20 @@ app = FastAPI(
     description="API for WFC AI Multi-Agent System with RAG and Graph capabilities",
     version="1.0.0"
 )
+
+# Add CORS middleware for browser access
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # In production, replace with specific origins
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Mount static files for chatbot UI
+static_path = Path(__file__).parent / "static"
+if static_path.exists():
+    app.mount("/static", StaticFiles(directory=str(static_path)), name="static")
 
 # Global system instance
 wfc_system = None
@@ -34,6 +53,11 @@ class EnhancedQueryRequest(BaseModel):
     response_mode: str = "balanced"
     max_results: int = 5
 
+class ChatRequest(BaseModel):
+    message: str
+    conversation_history: Optional[list] = None
+    use_enhanced: bool = True
+
 @app.on_event("startup")
 async def startup_event():
     """Initialize the WFC system on startup"""
@@ -43,6 +67,8 @@ async def startup_event():
     success = await wfc_system.initialize()
     if success:
         logger.info("✅ WFC System initialized successfully")
+        # Setup Workflow Canvas integration routes
+        setup_workflow_canvas_routes(app, wfc_system)
     else:
         logger.error("❌ Failed to initialize WFC System")
 
@@ -56,17 +82,19 @@ async def shutdown_event():
 
 @app.get("/")
 def read_root():
-    """Root endpoint"""
-    return {
-        "message": "WFC AI Integration API is running",
-        "version": "1.0.0",
-        "endpoints": {
-            "POST /query": "Process a query through the multi-agent system",
-            "POST /enhanced-query": "Process a query with AI-enhanced responses",
-            "GET /status": "Get system status",
-            "GET /stats": "Get system statistics"
-        }
-    }
+    """Root endpoint - redirects to chatbot UI"""
+    return HTMLResponse("""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta http-equiv="refresh" content="0; url=/static/chatbot.html" />
+        <title>Redirecting...</title>
+    </head>
+    <body>
+        <p>Redirecting to chatbot... <a href="/static/chatbot.html">Click here if not redirected</a></p>
+    </body>
+    </html>
+    """)
 
 @app.post("/query")
 async def process_query(request: QueryRequest) -> Dict[str, Any]:
@@ -159,3 +187,43 @@ async def run_workflow(request: Request):
         raise HTTPException(status_code=400, detail="Query is required")
     
     return await process_query(QueryRequest(query=query))
+
+@app.post("/chat")
+async def chat(request: ChatRequest) -> Dict[str, Any]:
+    """
+    Chat endpoint with conversation history support
+    
+    - **message**: User's message
+    - **conversation_history**: Previous conversation (optional)
+    - **use_enhanced**: Whether to use AI-enhanced responses
+    """
+    global wfc_system
+    
+    if not wfc_system or not wfc_system.initialized:
+        raise HTTPException(status_code=503, detail="System not initialized")
+    
+    try:
+        # Process with conversation context
+        if request.use_enhanced:
+            result = await wfc_system.process_enhanced_query(
+                query=request.message,
+                use_llm=True,
+                response_mode="balanced"
+            )
+        else:
+            result = await wfc_system.process_query(query=request.message)
+        
+        return {
+            "success": result.get("success", False),
+            "message": result.get("content") or result.get("llm_response", {}).get("content", ""),
+            "agent_used": result.get("agent_used", "unknown"),
+            "execution_time": result.get("execution_time", 0),
+            "metadata": {
+                "decision_reasoning": result.get("decision_reasoning"),
+                "confidence_score": result.get("confidence_score"),
+                "sources_used": result.get("sources_used", [])
+            }
+        }
+    except Exception as e:
+        logger.error(f"Error in chat endpoint: {e}")
+        raise HTTPException(status_code=500, detail=str(e))

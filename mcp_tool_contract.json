@@ -53,7 +53,7 @@
     "overdueWorkOrders": {
       "description": "Find machines that have overdue work orders.",
       "inputs": {},
-      "cypher": "MATCH (m:Machine)-[:HAS_WORK_ORDER]->(w:WorkOrder) WHERE w.status = 'Overdue' RETURN m.id AS machineId, w.id AS workOrderId, w.scheduledTime AS due ORDER BY due ASC",
+  "cypher": "MATCH (m:Machine)-[:HAS_WORK_ORDER]->(w:WorkOrder) WHERE w.status = 'Overdue' RETURN m.id AS machineId, w.id AS workOrderId, w.scheduledTime AS due ORDER BY due ASC",
       "outputs": [
         {
           "name": "machineId",

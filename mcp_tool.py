@@ -69,9 +69,9 @@ if __name__ == '__main__':
         sys.exit(1)
     op = sys.argv[2]
     inputs = json.loads(sys.argv[3]) if len(sys.argv) > 3 else {}
-    uri = os.environ.get('NEO4J_URI', 'neo4j+s://62f9b154.databases.neo4j.io')
+    uri = os.environ.get('NEO4J_URI', 'neo4j+s://ef7a8bfd.databases.neo4j.io')
     user = os.environ.get('NEO4J_USER', 'neo4j')
-    pwd  = os.environ.get('NEO4J_PASSWORD', 'U32P3onr7idgSWbqklVReZQ8BVRH_BWH3_A5Oj83oq0')
+    pwd  = os.environ.get('NEO4J_PASSWORD', 'PoPp-QU1qGsWwiVV8SMD7OsIrXidkdC4pFdgnBbJfM4')
     tool = ShopfloorGraphTool(uri, user, pwd)
     try:
         out = tool.call(op, inputs)

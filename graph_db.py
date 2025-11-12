@@ -209,9 +209,9 @@ class GraphAgent:
         """Initialize the graph agent"""
         try:
             # Get Neo4j credentials from environment or defaults
-            uri = os.environ.get('NEO4J_URI', 'neo4j+s://62f9b154.databases.neo4j.io')
+            uri = os.environ.get('NEO4J_URI', 'neo4j+s://ef7a8bfd.databases.neo4j.io')
             user = os.environ.get('NEO4J_USER', 'neo4j')
-            password = os.environ.get('NEO4J_PASSWORD', 'U32P3onr7idgSWbqklVReZQ8BVRH_BWH3_A5Oj83oq0')
+            password = os.environ.get('NEO4J_PASSWORD', 'PoPp-QU1qGsWwiVV8SMD7OsIrXidkdC4pFdgnBbJfM4')
             
             # Initialize graph tool
             self.graph_tool = ShopfloorGraphTool(uri, user, password)
@@ -495,10 +495,16 @@ class GraphAgent:
     async def get_current_operator(self, machine_id: str) -> Dict[str, Any]:
         """Get current operator for a machine"""
         try:
+            if not machine_id:
+                return {
+                    'success': False,
+                    'error': 'machineId parameter is required',
+                    'data': []
+                }
             result = await self.execute_operation(
                 operation='currentOperator',
                 query=f'Who is the current operator for machine {machine_id}',
-                params={'machine_id': machine_id}
+                params={'machineId': machine_id}
             )
             return result
         except Exception as e:
@@ -524,13 +530,28 @@ class GraphAgent:
                 'data': []
             }
     
-    async def get_machines_due_maintenance(self, days_ahead: int = 7) -> Dict[str, Any]:
-        """Get machines due for maintenance"""
+    async def get_machines_due_maintenance(self, cutoff_date: str = None) -> Dict[str, Any]:
+        """Get machines due for maintenance
+        
+        Args:
+            cutoff_date: ISO date string (YYYY-MM-DD or YYYY-MM-DDTHH:MM:SSZ)
+                        Finds machines with lastMaintenance before this date
+                        Defaults to 30 days ago if not provided
+        """
         try:
+            from datetime import datetime, timedelta
+            
+            # If no cutoff provided, default to 30 days ago
+            if not cutoff_date:
+                cutoff_date = (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%dT00:00:00Z')
+            # If date format is YYYY-MM-DD, convert to ISO datetime
+            elif 'T' not in cutoff_date:
+                cutoff_date = f"{cutoff_date}T00:00:00Z"
+            
             result = await self.execute_operation(
                 operation='dueForMaintenance',
-                query=f'Find machines due for maintenance in the next {days_ahead} days',
-                params={'days_ahead': days_ahead}
+                query=f'Find machines due for maintenance before {cutoff_date}',
+                params={'cutoff': cutoff_date}
             )
             return result
         except Exception as e:

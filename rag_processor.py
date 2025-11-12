@@ -182,45 +182,34 @@ class VectorStore:
         if not DEPENDENCIES_AVAILABLE:
             raise RuntimeError("Required dependencies not available. Please install: pip install sentence-transformers pandas numpy scikit-learn faiss-cpu")
         
-        # Configure SSL settings for corporate networks
+        # Configure SSL settings for corporate networks BEFORE any network calls
         import os
         import ssl
         import urllib3
         
-        # Disable SSL warnings and verification if needed
-        if os.getenv('OPENAI_VERIFY_SSL', 'true').lower() == 'false':
-            urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-            # Set environment variables to disable SSL verification for huggingface
-            os.environ['CURL_CA_BUNDLE'] = ''
-            os.environ['REQUESTS_CA_BUNDLE'] = ''
+        # Disable SSL verification globally for corporate networks
+        ssl._create_default_https_context = ssl._create_unverified_context
+        urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+        
+        # Set environment variables to disable SSL verification
+        os.environ['CURL_CA_BUNDLE'] = ''
+        os.environ['REQUESTS_CA_BUNDLE'] = ''
+        os.environ['SSL_CERT_FILE'] = ''
+        
+        logger.info(f"Attempting to load SentenceTransformer model: {model_name}")
+        logger.info("Note: SSL verification disabled for corporate network compatibility")
             
         try:
-            # Try to load the model with SSL verification
+            # Try to load the model with SSL disabled
             self.model = SentenceTransformer(model_name)
-            logger.info(f"Successfully loaded SentenceTransformer model: {model_name}")
+            logger.info(f"✅ Successfully loaded SentenceTransformer model: {model_name}")
         except Exception as e:
-            logger.warning(f"Failed to load model with SSL verification: {e}")
+            logger.warning(f"⚠️ Failed to download model from Hugging Face: {e}")
+            logger.info("💡 Switching to simple fallback embedding method...")
             
-            # Try with SSL verification disabled for corporate networks
-            try:
-                # Set environment variables to bypass SSL for model download
-                import ssl
-                ssl._create_default_https_context = ssl._create_unverified_context
-                
-                # Also try setting huggingface hub to offline mode if model exists locally
-                os.environ['HF_HUB_OFFLINE'] = '1'
-                os.environ['TRANSFORMERS_OFFLINE'] = '1'
-                
-                self.model = SentenceTransformer(model_name)
-                logger.info(f"Successfully loaded SentenceTransformer model with SSL disabled: {model_name}")
-                
-            except Exception as e2:
-                logger.error(f"Failed to load model even with SSL disabled: {e2}")
-                logger.info("Trying to use a simple fallback embedding method...")
-                
-                # Create a simple fallback that doesn't require model download
-                self.model = None
-                logger.warning("Using fallback embedding method due to network issues")
+            # Use simple fallback that doesn't require model download
+            self.model = None
+            logger.info("✅ Using fallback embedding (TF-IDF-like) for RAG search")
         
         self.documents = []
         self.embeddings = None
@@ -543,9 +532,15 @@ class SimpleRAGAgent:
                 'execution_time': execution_time
             }
     
-    async def get_context(self, query: str, max_context_length: int = 2000):
-        """Get context for a query"""
-        result = await self.search_documents(query)
+    async def get_context(self, query: str, k: int = 3, max_context_length: int = 2000):
+        """Get context for a query
+        
+        Args:
+            query: The search query
+            k: Number of documents to retrieve (default: 3)
+            max_context_length: Maximum length of context to return
+        """
+        result = await self.search_documents(query, k=k)
         if result['success']:
             # Build context from retrieved documents
             context_parts = []

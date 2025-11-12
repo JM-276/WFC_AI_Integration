@@ -145,9 +145,9 @@ class Neo4jDataLoader:
 
 def main():
     # Get Neo4j credentials from environment
-    uri = os.environ.get('NEO4J_URI', 'neo4j+s://ef7a8bfd.databases.neo4j.io')
+    uri = os.environ.get('NEO4J_URI', 'neo4j+s://3f819383.databases.neo4j.io')
     user = os.environ.get('NEO4J_USERNAME', 'neo4j')
-    password = os.environ.get('NEO4J_PASSWORD', 'PoPp-QU1qGsWwiVV8SMD7OsIrXidkdC4pFdgnBbJfM4')
+    password = os.environ.get('NEO4J_PASSWORD', 'PqzE688WcO9IFu--rCkBuusfzgt_PkWjQm4Av22QEU0')
     
     logger.info("🚀 Starting Neo4j data import...")
     logger.info(f"   URI: {uri}")
